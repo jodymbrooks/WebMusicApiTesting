@@ -1,0 +1,17 @@
+body {
+  font-family: sans-serif;
+}
+
+body[data-sharp-flat-mode="Sharps"] .flat {
+  display: none;
+}
+
+body[data-sharp-flat-mode="Flats"] .sharp {
+  display: none;
+}
+
+.sharp,
+.flat {
+  background-color: black;
+  color: white;
+}
