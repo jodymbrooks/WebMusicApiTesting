@@ -1,7 +1,7 @@
 import "./styles.css";
 
 const audioContext = new (window.webkitAudioContext || window.AudioContext)();
-const baseDuration = 0.2;
+const baseDuration = 0.25;
 
 // Connect all of our audio nodes to this gain node so their volume is lower.
 const primaryGainControl = audioContext.createGain();
@@ -10,51 +10,9 @@ primaryGainControl.connect(audioContext.destination);
 
 const notes = getNotes();
 
-const buttons = {};
-
-let sharpFlatChoice = "Sharps";
-document.body.setAttribute("data-sharpFlatMode", sharpFlatChoice);
-const sharpFlatSelect = document.createElement("select");
-sharpFlatSelect.innerHTML =
-  '<option label="Sharps" value="Sharps" selected=selected/>' +
-  '<option label="Flats" value="Flats"/>';
-
-sharpFlatSelect.addEventListener("change", (event) => {
-  sharpFlatChoice = event.target.value;
-  document.body.dataset.sharpFlatMode = sharpFlatChoice;
-});
-document.body.appendChild(sharpFlatSelect);
-document.body.appendChild(document.createElement("br"));
-
-notes.forEach(({ name, frequency, sharp, flat }, index) => {
-  const noteButton = document.createElement("button");
-  buttons[name] = noteButton;
-  noteButton.duration = baseDuration; // default
-  noteButton.innerText = name;
-  if (sharp || flat) noteButton.classList.add(sharp ? "sharp" : "flat");
-  noteButton.addEventListener("click", () => {
-    // Create an oscillator at the note's frequency
-    const noteOscillator = audioContext.createOscillator();
-    noteOscillator.type = "square";
-    noteOscillator.frequency.setValueAtTime(
-      frequency,
-      audioContext.currentTime
-    );
-    noteOscillator.connect(primaryGainControl);
-    noteOscillator.start();
-    let duration = noteButton.duration;
-    noteOscillator.stop(audioContext.currentTime + duration);
-  });
-
-  document.body.appendChild(noteButton);
-  if ((index + 1) % 17 === 0)
-    document.body.appendChild(document.createElement("br"));
-});
-document.body.appendChild(document.createElement("br"));
-document.body.appendChild(document.createElement("br"));
-
 const playButton = document.createElement("button");
-playButton.innerText = "Play";
+playButton.innerText = "I'll Fly Away";
+document.body.appendChild(playButton);
 playButton.addEventListener("click", () => {
   const illFlyAway = [
     { note: "B4", duration: 2 },
@@ -85,26 +43,106 @@ playButton.addEventListener("click", () => {
     { note: "A4", duration: 2 },
     { note: "B4", duration: 6 },
     { note: "A4", duration: 2 },
-    { note: "G4", duration: 4 },
-    { note: ["G4", "B4", "D4"], duration: 8 }
+    { note: "G4", duration: 6 },
+    { note: ["G4", "B4", "D4"], duration: 6 }
   ];
 
   playNotes(illFlyAway);
 });
-document.body.appendChild(playButton);
+document.body.appendChild(document.createElement("br"));
+document.body.appendChild(document.createElement("br"));
 
-function playNote(name, duration) {
+const pianoKeys = {};
+
+let sharpFlatChoice = "Sharps";
+document.body.dataset.sharpFlatMode = sharpFlatChoice;
+const sharpFlatSelect = document.createElement("select");
+sharpFlatSelect.innerHTML =
+  '<option label="Sharps" value="Sharps" selected=selected/>' +
+  '<option label="Flats" value="Flats"/>';
+
+sharpFlatSelect.addEventListener("change", (event) => {
+  sharpFlatChoice = event.target.value;
+  document.body.dataset.sharpFlatMode = sharpFlatChoice;
+});
+document.body.appendChild(sharpFlatSelect);
+document.body.appendChild(document.createElement("br"));
+
+const keyboard = document.createElement("div");
+keyboard.style.position = "relative";
+document.body.appendChild(keyboard);
+
+const btnHeight = 20;
+const btnWidth = 80;
+let btnTop = 0;
+notes.forEach(({ name, frequency, sharp, flat }, index) => {
+  const noteButton = document.createElement("button");
+  pianoKeys[name] = noteButton;
+  noteButton.duration = baseDuration; // default
+  noteButton.frequency = frequency;
+  noteButton.innerText = name;
+  if (sharp || flat) noteButton.classList.add(sharp ? "sharp" : "flat");
+  noteButton.addEventListener("click", () => playButtonNote(noteButton));
+
+  keyboard.appendChild(noteButton);
+
+  let top = btnTop + btnHeight;
+  let left = 0;
+  let width = btnWidth;
+  if (sharp || flat) {
+    top -= 10;
+    width = width / 2;
+    left += width;
+    noteButton.style.zIndex = 100;
+  } else {
+    btnTop += btnHeight;
+  }
+  noteButton.style.width = width + "px";
+  noteButton.style.height = btnHeight + "px";
+  noteButton.style.position = "absolute";
+  noteButton.style.left = left + "px";
+  noteButton.style.top = top + "px";
+  noteButton.style.textAlign = "left";
+});
+document.body.appendChild(document.createElement("br"));
+document.body.appendChild(document.createElement("br"));
+
+function playButtonNote(button) {
+  const { frequency, duration } = button;
+  button.defaultColor = button.style.color;
+  button.defaultBackgroundColor = button.style.backgroundColor;
+  button.style.color = "white";
+  button.style.backgroundColor = "blue";
+  return playNoteByFrequency(frequency, duration).then(() => {
+    // reset changes
+    button.duration = baseDuration;
+    button.style.color = button.defaultColor;
+    button.style.backgroundColor = button.defaultBackgroundColor;
+  });
+}
+
+function playNoteByFrequency(frequency, duration) {
+  // Create an oscillator at the note's frequency
+  const noteOscillator = audioContext.createOscillator();
+  noteOscillator.type = "square"; //"sine";
+  noteOscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+  noteOscillator.connect(primaryGainControl);
+  noteOscillator.start();
+  noteOscillator.stop(audioContext.currentTime + duration);
+  return new Promise((resolve) => setTimeout(resolve, duration * 0.8 * 1000));
+}
+
+function playNoteByName(name, duration) {
   if (!duration) duration = 1;
   if (!Array.isArray(name)) name = [name];
   const currentDuration = duration * baseDuration;
+  let lastPromise;
   name.forEach((nm) => {
-    buttons[nm].duration = currentDuration;
-    buttons[nm].click();
+    const button = pianoKeys[nm];
+    button.duration = currentDuration;
+    lastPromise = playButtonNote(button);
   });
-  // buttons[name].click();
-  return new Promise((resolve) => {
-    setTimeout(resolve, currentDuration * 1000);
-  });
+  return lastPromise;
 }
 
 function playNotes(notes) {
@@ -112,7 +150,7 @@ function playNotes(notes) {
 
   const first = notes.shift(); // removes the first note from notes and returns it
   const { note, duration } = first;
-  playNote(note, duration).then(() => {
+  playNoteByName(note, duration).then(() => {
     if (notes.length > 0) {
       playNotes(notes);
     }
